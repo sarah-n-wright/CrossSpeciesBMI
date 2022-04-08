@@ -1,11 +1,15 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.patches import BoxStyle as bx
+from analysis_functions import *
+from updated_netcoloc_functions import *
+
 
 import seaborn as sns
 import pandas as pd
 import networkx as nx
 import random
+import numpy as np
 
 from scipy.stats import hypergeom
 from statsmodels.stats.multitest import fdrcorrection
@@ -27,6 +31,57 @@ def darken(color_tuple, factor=0.25):
 
 
 ## Main functions -------------------------------------------
+
+
+def plot_overlap_significance(primary, secondary, results_table):
+    """
+    :param primary:
+    :param secondary:
+    :param results_table:
+    """
+    pairs = [(primary, s)  if (primary, s) in results_table.index else (s, primary) for s in secondary]
+    pairs_data = results_table.loc[pairs]
+    pairs_data['xlabel'] = [primary+ "-" + s for s in secondary]
+    pairs_data['yerr_lower'] = pairs_data.apply(lambda x: x.obs_exp - x.num_overlap/(x.exp_mean_overlap + 1.96*x.exp_std_overlap), axis = 1)
+    pairs_data['yerr_upper'] = pairs_data.apply(lambda x: x.num_overlap/(x.exp_mean_overlap - 1.96*x.exp_std_overlap) - x.obs_exp, axis = 1)
+
+    plt.figure(figsize = (4,3))
+    plt.errorbar(np.arange(len(pairs_data)),pairs_data['obs_exp'],
+             yerr=[pairs_data['yerr_lower'],pairs_data['yerr_upper']],
+             fmt='o',color='k')
+    tmp=plt.xticks(np.arange(len(pairs_data)), pairs_data['xlabel'],fontsize=16,rotation='vertical')
+    plt.ylabel('observed/expected size \nof network intersection\n(95% CI)',fontsize=16)
+    plt.hlines(1,xmin=-.5,xmax=len(pairs_data),color='gray',linestyles='dashed')
+    plt.yticks(fontsize=16)
+    plt.xlim([-.5,len(pairs_data)-.5])
+
+
+def plot_permutation_histogram(permuted, observed, title, xlabel):
+    """
+    Plot the observed mean of NPS_hr against a density histrogram of the means of permuted NPS_hr
+    :param permuted: Vector of means of permuted NPS_hr
+    :param observed: Observed mean of NPS_hr
+    :param title: String for plot title
+    :param xlabel: String for x-axis label
+    """
+    plt.figure(figsize=(5, 4))
+    dfig = sns.histplot(permuted, label='Expected', alpha=0.4, stat='density', bins=25, kde=True, 
+                        edgecolor='w')
+    params = {'mathtext.default': 'regular' }          
+    plt.rcParams.update(params)
+    plt.xlabel(xlabel, fontsize=16)
+    diff = max(observed, max(permuted))-min(permuted)
+    plt.arrow(x = observed, y=dfig.dataLim.bounds[3]/2, dx=0, dy = -1 * dfig.dataLim.bounds[3]/2,label = "Observed",
+              width=diff/100, head_width=diff/15, head_length=dfig.dataLim.bounds[3]/20, overhang=0.5, 
+              length_includes_head=True, color="red", zorder=50)
+    #plt.xlabel(xlabel, fontsize=12)
+    plt.ylabel("Density", fontsize=16)
+    plt.legend(fontsize=12, loc=(0.6,0.75))
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.locator_params(axis="y", nbins=6)
+    plt.title(title+" (p="+str(get_p_from_permutation_results(observed, permuted))+")", fontsize=16)
+
 
 
 def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_names=None, sort_by=None, 
@@ -397,6 +452,7 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
             elif select_on=="ppv":
                 new_sigs = list(subset.loc[subset.ppv > subset.loc[current, "ppv"], "MP"].values)
             elif select_on=="hypergeom":
+                term_counts = {term: len(term_mapping[term]) for term in term_mapping}
                 parent_size = term_counts[current]
                 parent_observed = data.loc[current, "observed"]
                 parent_hyper = all_hypers[current]
@@ -514,6 +570,8 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
 
 def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_th=0.05, stat="OR", filter_stat="OR_p",
                           ylabel_groups=None, color_range=None, vert=None, horz=12):
+    # TODO remove dependence on annotations
+    # get rid of name_x
     keep_cols = list(set(["name", "description", stat, filter_stat]))
     body_size_results = results.loc[traits, keep_cols]
     body_size_results["description"] = body_size_results["description"].apply(lambda x: x.split("abnormal ")[-1])

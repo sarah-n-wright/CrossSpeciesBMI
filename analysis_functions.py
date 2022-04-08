@@ -4,6 +4,10 @@ import networkx as nx
 import ndex2
 import getpass
 
+from statsmodels.stats.multitest import fdrcorrection
+from scipy.stats import hypergeom
+from statsmodels.stats import contingency_tables
+
 ## Utilities ------------------------------------------------------------
 
 def num_to_mp(number):
@@ -18,7 +22,7 @@ def get_MP_description(term, MPO):
     return MPO.node_attr.loc[term].description
 
 
-def _get_mp_graph(datafile="parsed_mp.txt"):
+def get_mp_graph(datafile="parsed_mp.txt"):
     mp_data = pd.read_csv(datafile, sep="\t", header=None)
     mp_data.head()
     mp_graph = nx.from_pandas_edgelist(mp_data, 0,1, create_using=nx.DiGraph)
@@ -66,15 +70,19 @@ def load_pcnet():
     return nodes, G_int
 
 
-def load_BMI_network():
+def load_network(uuid='e8cc9239-d91a-11eb-b666-0ac135e8bacf', use_password=False):
     ndex_server='public.ndexbio.org'
-    ndex_user=None
-    ndex_password=None
+    if use_password:
+        ndex_user=getpass.getpass("NDEX Username:")
+        ndex_password=getpass.getpass("NDEX Password:")
+    else:
+        ndex_user=None
+        ndex_password=None
     G_overlap_cx = ndex2.create_nice_cx_from_server(
             ndex_server, 
             username=ndex_user, 
             password=ndex_password, 
-            uuid='e8cc9239-d91a-11eb-b666-0ac135e8bacf')
+            uuid=uuid)
     G_overlap = G_overlap_cx.to_networkx()
     print('number of nodes:')
     print(len(G_overlap.nodes))
@@ -108,7 +116,7 @@ def genes_per_node(MPO):
     return counts, genes, results
 
 
-def community_term_enrichment(community_name, hier_df, MPO, mgi_df, term_counts, gene_to_terms, keep_genes=None, exclude_genes=None):
+def community_term_enrichment(community_name, hier_df, MPO, mgi_df, term_counts, gene_to_terms, G_int, keep_genes=None, exclude_genes=None):
     """
     :param community_name:
     :param hier_df:
@@ -123,6 +131,9 @@ def community_term_enrichment(community_name, hier_df, MPO, mgi_df, term_counts,
     genes = hier_df.loc[community_name, "CD_MemberList"]
     if type(genes) is str:  # split into a list of genes
         genes_all = genes.split(" ")
+        N_hier = len(genes_all)
+    else:
+        genes_all = genes
         N_hier = len(genes_all)
     # only keep genes in the MGI ontology    
     genes = [ g for g in genes_all if g in MPO.genes ]  
@@ -185,7 +196,7 @@ def get_contingency_stats(observed, term_size, community_size, network_size):
 ## Results ------------------------------------------------------------------------------
 
 def get_hits(network_results, data, p=0.01, OR=2, obs_min=3, total=10000, level= 3):
-    mp_graph = _get_mp_graph()
+    mp_graph = get_mp_graph()
     node_levels = nx.shortest_path_length(mp_graph, "MP:0000001")
     term_totals = data.loc[:, ("total", "description")]
     network_results = network_results.join(term_totals, how="left").drop_duplicates(subset=["OR", "total"])
