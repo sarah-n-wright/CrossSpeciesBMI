@@ -317,7 +317,7 @@ def calculate_mean_z_score_distribution(z1, z2, num_reps, zero_double_negatives=
 ## validaton ---------------------------------------------------------------------------------
 
 def load_MPO(url='http://www.informatics.jax.org/downloads/reports/MPheno_OBO.ontology', use_genes=False,
-             mapping=None, restrict_to=None, use_display=False):
+             mapping=None, restrict_to=None, use_display=False, data_loc='', update=False):
     """
     Function to parse and load mouse phenotype ontology, using DDOT's ontology module
 
@@ -338,20 +338,21 @@ def load_MPO(url='http://www.informatics.jax.org/downloads/reports/MPheno_OBO.on
     if use_genes:
         assert mapping is not None, "You must supply a mapping dataframe if use_genes==True"
     # download the mammalian phenotype ontology, parse with ddot
-    r = requests.get(url, allow_redirects=True)
-    open('MPheno_OBO.ontology', 'wb').write(r.content)
-    ddot.parse_obo('MPheno_OBO.ontology',
-                   'parsed_mp.txt',
-                   'id2name_mp.txt',
-                   'id2namespace_mp.txt',
-                   'altID_mp.txt')
+    if (not exists(data_loc + 'MPheno_OBO.ontology')) or update:
+        r = requests.get(url, allow_redirects=True)
+        open(data_loc + 'MPheno_OBO.ontology', 'wb').write(r.content)
+    ddot.parse_obo(data_loc + 'MPheno_OBO.ontology',
+                   data_loc + 'parsed_mp.txt',
+                   data_loc + 'id2name_mp.txt',
+                   data_loc + 'id2namespace_mp.txt',
+                   data_loc + 'altID_mp.txt')
 
-    MP2desc = pd.read_csv('id2name_mp.txt', sep='\t', names=['MP', 'description'], index_col='MP')
+    MP2desc = pd.read_csv(data_loc + 'id2name_mp.txt', sep='\t', names=['MP', 'description'], index_col='MP')
 
     MP2desc = MP2desc.loc[MP2desc.index.dropna()]  # drop NAN from index
     print(len(MP2desc))
 
-    hierarchy = pd.read_table('parsed_mp.txt',
+    hierarchy = pd.read_table(data_loc + 'parsed_mp.txt',
                               sep='\t',
                               header=None,
                               names=['Parent', 'Child', 'Relation', 'Namespace'])
@@ -388,7 +389,7 @@ def load_MPO(url='http://www.informatics.jax.org/downloads/reports/MPheno_OBO.on
 
 
 def load_MGI_mouseKO_data(url='http://www.informatics.jax.org/downloads/reports/MGI_PhenoGenoMP.rpt',
-                          map_using="mygeneinfo", update=False):
+                          map_using="mygeneinfo", update=False, data_loc=""):
     """
     Function to parse and load mouse knockout data from MGI.
 
@@ -398,12 +399,12 @@ def load_MGI_mouseKO_data(url='http://www.informatics.jax.org/downloads/reports/
     :rtype: :py:class:`pandas.DataFrame`
     """
     # download MGI phenotype data
-    if (not exists('MGI_PhenoGenoMP.rpt')) or update:
+    if (not exists(data_loc + 'MGI_PhenoGenoMP.rpt')) or update:
         r = requests.get(url, allow_redirects=True)
-        open('MGI_PhenoGenoMP.rpt', 'wb').write(r.content)
+        open(data_loc + 'MGI_PhenoGenoMP.rpt', 'wb').write(r.content)
 
     # parse the downloaded MGI phenotype data
-    mgi_df = pd.read_csv('MGI_PhenoGenoMP.rpt', sep='\t',
+    mgi_df = pd.read_csv(data_loc + 'MGI_PhenoGenoMP.rpt', sep='\t',
                          names=['MGI_Allele_Accession_ID',
                                 'Allele symbol', 'involves',
                                 'MP', 'PMID', 'MGI_marker_accession_ID'])
@@ -428,11 +429,11 @@ def load_MGI_mouseKO_data(url='http://www.informatics.jax.org/downloads/reports/
         return mgi_df
 
     elif map_using == "mgi":
-        if not exists('MRK_List2.rpt') or update:
+        if not exists(data_loc + 'MRK_List2.rpt') or update:
             keep_url = "http://www.informatics.jax.org/downloads/reports/MRK_List2.rpt"
             r_map = requests.get(keep_url, allow_redirects=True)
-            open('MRK_List2.rpt', 'wb').write(r_map.content)
-        keep = pd.read_csv('MRK_List2.rpt', sep="\t", usecols=["MGI Accession ID", "Marker Symbol",
+            open(data_loc + 'MRK_List2.rpt', 'wb').write(r_map.content)
+        keep = pd.read_csv(data_loc + 'MRK_List2.rpt', sep="\t", usecols=["MGI Accession ID", "Marker Symbol",
                                                                      "Feature Type", "Marker Name"])
         keep = keep.loc[keep["Feature Type"].isin(["protein coding gene"])].reset_index(drop=True)
         mgi_df["MGI"] = mgi_df.MGI_marker_accession_ID.apply(lambda x: x.split("|"))
@@ -442,11 +443,11 @@ def load_MGI_mouseKO_data(url='http://www.informatics.jax.org/downloads/reports/
         mgi_df = mgi_df.merge(keep.loc[:, ("MGI Accession ID", "Marker Symbol")], left_on="MGI",
                               right_on="MGI Accession ID", how="left")
 
-        if not exists('HMD_HumanPhenotype.rpt') or update:
+        if not exists(data_loc + 'HMD_HumanPhenotype.rpt') or update:
             map_url = "http://www.informatics.jax.org/downloads/reports/HMD_HumanPhenotype.rpt"
             r_map = requests.get(map_url, allow_redirects=True)
-            open('HMD_HumanPhenotype.rpt', 'wb').write(r_map.content)
-        mapping = pd.read_csv('HMD_HumanPhenotype.rpt', sep="\t", header=None, usecols=[0, 2, 3],
+            open(data_loc + 'HMD_HumanPhenotype.rpt', 'wb').write(r_map.content)
+        mapping = pd.read_csv(data_loc + 'HMD_HumanPhenotype.rpt', sep="\t", header=None, usecols=[0, 2, 3],
                               index_col=False, names=["symbol", "gene_name", "MGI"])
         mapping = mapping.loc[mapping["MGI"].isin(keep["MGI Accession ID"])]
 
