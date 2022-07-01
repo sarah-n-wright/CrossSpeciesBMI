@@ -10,6 +10,7 @@ from scipy.stats import norm
 import math
 import random as rn
 mg = mygene.MyGeneInfo()
+from netcoloc.netprop_zscore import calculate_heat_zscores
 
 def calculate_significance_colocalized_network(z_dict, seed_dict, num_permutations=100, verbose=True, zthresh=3,
                                               overlap_control=None, d1=None, d2=None):
@@ -127,11 +128,12 @@ def calculate_expected_overlap(z_scores_1, z_scores_2, seed1=None, seed2=None,
     """
     # Build a distribution of expected network overlap sizes by shuffling node names
     random_network_overlap_sizes = []
-    if isinstance(z_scores_1, pd.DataFrame):
-        z1z2 = z_scores_1.join(z_scores_2, lsuffix="1", rsuffix="2")
-        z1z2 = z1z2.assign(zz=z1z2.z1 * z1z2.z2)
-    elif isinstance(z_scores_1, pd.Series):
-        z1z2 = pd.concat([z_scores_1, z_scores_2], axis=1)
+    if isinstance(z_scores_1, pd.Series):
+        z_scores_1 = pd.DataFrame(z_scores_1, columns=["z"])           
+    if isinstance(z_scores_2, pd.Series):
+        z_scores_2 = pd.DataFrame(z_scores_2, columns=["z"])
+    z1z2 = z_scores_1.join(z_scores_2, lsuffix="1", rsuffix="2")
+    z1z2 = z1z2.assign(zz=z1z2.z1 * z1z2.z2)
     if overlap_control == "remove":
         seed_overlap = list(set(seed1).intersection(set(seed2)))
         print("Overlap seed genes:", len(seed_overlap))
@@ -269,9 +271,13 @@ def calculate_mean_z_score_distribution(z1, z2, num_reps, zero_double_negatives=
     :param seed1:
     :param seed2:
     """
+    if isinstance(z1, pd.Series):
+        z1 = pd.DataFrame(z1, columns=["z"])
+    if isinstance(z2, pd.Series):
+        z2 = pd.DataFrame(z2, columns=["z"])
     z1z2 = z1.join(z2, lsuffix="1", rsuffix="2")
     z1z2 = z1z2.assign(zz=z1z2.z1 * z1z2.z2)
-    print(z1z2.head())
+    #print(z1z2.head())
     if overlap_control == "remove":
         seed_overlap = list(set(seed1).intersection(set(seed2)))
         print("Overlap seed genes:", len(seed_overlap))
@@ -289,7 +295,7 @@ def calculate_mean_z_score_distribution(z1, z2, num_reps, zero_double_negatives=
             if (z1z2.loc[node].z1 < 0 and z1z2.loc[node].z2 < 0):
                 z1z2.loc[node, 'zz'] = 0
     permutation_means = np.zeros(num_reps)
-    for i in range(num_reps):
+    for i in tqdm(range(num_reps)):
         perm_z1z2 = np.zeros(len(z1))
         np.random.shuffle(z1)
 
@@ -312,7 +318,53 @@ def calculate_mean_z_score_distribution(z1, z2, num_reps, zero_double_negatives=
         permutation_means[i] = np.mean(perm_z1z2)
     return np.mean(z1z2.zz), permutation_means
     
+def calculate_heat_zscores_with_sampling(data, nodes, individual_heats, G_PC, trait="BMI", max_genes=500,
+                                         num_samples=100,
+                                         nominal_sig=0.05, num_reps=1000, out_path="", minimum_bin_size=10):
+    """
+    Takes a set of summary statistics and a molecular interaction and performs sampling of the significant genes.
+    For each sample a random selection of seed genes is chosen, weighted by the p-value of each gene in the summary
+    statistics. Network propagation with zscore calculation is performed for each sample to generate a distribution
+    of z-scores for each gene in the seed_gene set.
+    :param data: Gene level summary statistics
+    :param nodes: list of nodes in the interaction network
+    :param individual_heats: Heat matrix calculated by `netprop_zscore.get_individual_heats_matrix())
+    :param G_PC: molecular interaction network
+    :param trait: name of trait being investigated
+    :param max_genes: Maximum number of seed genes to include in each sample (default=500, maximum=500)
+    :param num_samples: Number of times to perform sampling (default=100)
+    :param nominal_sig: Significance cutoff for keeping genes in data (Note: this value will be Bonferroni corrected)
+    :param num_reps: Number of repetitions of randomization for generating null distribution for z_scores
+    :param out_path: prefix for saving results of sampling
+    :param minimum_bin_size: minimum number of genes that should be in
+            each degree matching bin
+    :type minimum_bin_size: int
+    :return:
+    """
+    assert max_genes <= 500, "NetColoc is only valid for sets of 500 or less genes so maximum number of genes for " \
+                             "sampling must be <= 500"
+    outfile = out_path + trait + "sampling_" + str(max_genes) + "_" + str(num_samples) + ".tsv"
+    data = data.loc[data.gene_symbol.isin(nodes)]  # subset to genes in interaction network
+    all_seeds = data.loc[data.pvalue <= nominal_sig / len(data)]  # Bonferroni correction
+    all_seeds = all_seeds.assign(log10p=-1 * np.log10(all_seeds.pvalue))  # get -log10p for weighted sampling
+    sampling_results = []
+    for i in range(num_samples):
+        # perform propagation for sample
+        sample_seeds = rn.choices(population=all_seeds.gene_symbol.values, weights=all_seeds.log10p.values, k=max_genes)
+        sample_results = calculate_heat_zscores(individual_heats, nodes=list(G_PC.nodes), degrees=dict(G_PC.degree),
+                                                seed_genes=sample_seeds, num_reps=num_reps,
+                                                minimum_bin_size=minimum_bin_size, random_seed=i)[0]
+        sample_z = pd.DataFrame(sample_results, columns=["z" + str(i)])
+        # save running results of sampling
+        if i == 0:
+            sample_z.to_csv(outfile, sep="\t")
+        else:
+            existing = pd.read_csv(outfile, sep="\t", index_col=0)
+            existing = existing.join(sample_z)
+            existing.to_csv(outfile, sep="\t")
+        sampling_results.append(sample_z)
 
+    return pd.concat(sampling_results, axis=1)
 
 ## validaton ---------------------------------------------------------------------------------
 
