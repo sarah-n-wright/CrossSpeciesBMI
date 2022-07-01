@@ -341,7 +341,7 @@ def load_MPO(url='http://www.informatics.jax.org/downloads/reports/MPheno_OBO.on
     if (not exists(data_loc + 'MPheno_OBO.ontology')) or update:
         r = requests.get(url, allow_redirects=True)
         open(data_loc + 'MPheno_OBO.ontology', 'wb').write(r.content)
-    ddot.parse_obo(data_loc + 'MPheno_OBO.ontology',
+        ddot.parse_obo(data_loc + 'MPheno_OBO.ontology',
                    data_loc + 'parsed_mp.txt',
                    data_loc + 'id2name_mp.txt',
                    data_loc + 'id2namespace_mp.txt',
