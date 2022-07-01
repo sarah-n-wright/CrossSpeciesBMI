@@ -2,15 +2,67 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 import ndex2
-import getpass
+from getpass import getpass
 
 from statsmodels.stats.multitest import fdrcorrection
 from scipy.stats import hypergeom
 from statsmodels.stats import contingency_tables
 
+def load_human_seed_genes(filepath, interactome_nodes, trait=''):
+    """
+    :param filepath:
+    :param interactome_nodes:
+    :param trait:
+    """
+    all_scores = pd.read_csv(filepath, sep="\t", index_col='gene_symbol')
+    # subset to genes in the interactome
+    all_scores = all_scores.loc[list(np.intersect1d(all_scores.index.tolist(), interactome_nodes))]
+    # Calculate bonferroni corrected pvalue (alpha=0.05)
+    bonf_p = .05/len(all_scores)
+    # Get significant genes
+    seeds = all_scores[all_scores['pvalue'] < bonf_p].index.tolist()
+    print("Number of",trait,"seeds:", len(seeds))
+    return seeds
+
+
+def get_permutation_stats(obs, perm, trait, ci=0.95):
+    """
+    :param obs:
+    :param perm:
+    :param trait:
+    :param ci:
+    
+    """
+    transform = obs / perm
+    avg = np.mean(transform)
+    upper = np.quantile(transform, ci)
+    lower = np.quantile(transform, 1-ci)
+    p_value = get_p_from_permutation_results(obs, perm)
+    return pd.DataFrame({"Mean":avg, "Upper":upper, "Lower":lower, "p":p_value}, index=[trait])
+
+
+def get_consensus_z_scores(sampled_results, percentile=.75):
+    """
+    returns the consensus z score for each gene across all samples
+    :param sampled_results: output of netprop_zscore.calculate_heat_zscores_with_sampling
+    :type sampled_results: str (file path) or pandas.DataFrame
+    :param percentile: Percentile cut off for determining consensus score (default=0.75)
+    :type percentile: float
+    :return: Consensus z-scores for all genes based on sampling
+    """
+    if type(sampled_results) == str:
+        results = pd.read_csv(sampled_results, sep="\t", index_col=0)
+    else:
+        results = sampled_results
+    consensus_z = pd.DataFrame({'z': results.quantile(q=percentile, axis=1)})
+    return consensus_z
+
 ## Utilities ------------------------------------------------------------
 
 def num_to_mp(number):
+    """
+    :param number:
+    """
     mp = "MP:"
     num = str(number)
     zeros_to_add = 7-len(num)
@@ -19,10 +71,17 @@ def num_to_mp(number):
 
 
 def get_MP_description(term, MPO):
+    """
+    :param term:
+    :param MPO:
+    """
     return MPO.node_attr.loc[term].description
 
 
 def get_mp_graph(datafile="parsed_mp.txt"):
+    """
+    :param datafile:
+    """
     mp_data = pd.read_csv(datafile, sep="\t", header=None)
     mp_data.head()
     mp_graph = nx.from_pandas_edgelist(mp_data, 0,1, create_using=nx.DiGraph)
@@ -30,16 +89,29 @@ def get_mp_graph(datafile="parsed_mp.txt"):
 
 
 def get_top_level_terms(mp_graph, root="MP:0000001" ,exclude=["MP:0003012", "MP:0002873"]):
+    """
+    :param mp_graph:
+    :param root:
+    :param exclude:
+    """
     return [node for node in nx.dfs_preorder_nodes(mp_graph, root, 1) if node not in exclude][1:]
 
 
 def change_symbols(mgi_data, pc_node_map):
+    """
+    :param mgi_data:
+    :param pc_node_map:
+    """
     symbol_map = pd.Series(pc_node_map.index.values, index=pc_node_map["symbol"]).to_dict()
     mgi_data["human_ortholog"] = mgi_data["human_ortholog"].map(symbol_map)
     return mgi_data
 
 
 def get_gene_hits_no_annotation(genes, term, MPO, term_mapping):
+    """
+    :param mgi_data:
+    :param pc_node_map:
+    """
     term_genes = [MPO.genes[idx] for idx in term_mapping[term]]
     overlap = set(genes).intersection(set(term_genes))
     return overlap
@@ -71,6 +143,10 @@ def load_pcnet():
 
 
 def load_network(uuid='e8cc9239-d91a-11eb-b666-0ac135e8bacf', use_password=False):
+    """
+    :param uuid:
+    :param use_password:
+    """
     ndex_server='public.ndexbio.org'
     if use_password:
         ndex_user=getpass.getpass("NDEX Username:")
@@ -94,6 +170,9 @@ def load_network(uuid='e8cc9239-d91a-11eb-b666-0ac135e8bacf', use_password=False
 ## Enrichment Analysis ---------------------------------------------------
 
 def genes_per_node(MPO):
+    """
+    :param MPO:
+    """
     node_order = MPO.topological_sorting(top_down=False)
     nodes = [i for i in node_order]
     results = {i: set(MPO.term_2_gene[i]) for i in node_order}
@@ -179,6 +258,12 @@ def community_term_enrichment(community_name, hier_df, MPO, mgi_df, term_counts,
 
 
 def get_contingency_stats(observed, term_size, community_size, network_size):
+    """
+    :param observed:
+    :param term_size:
+    :param community_size:
+    :param network_size:
+    """
     q00 = observed
     q01 = term_size - observed
     q10 = community_size - observed
@@ -196,6 +281,8 @@ def get_contingency_stats(observed, term_size, community_size, network_size):
 ## Results ------------------------------------------------------------------------------
 
 def get_hits(network_results, data, p=0.01, OR=2, obs_min=3, total=10000, level= 3):
+    """
+    """
     mp_graph = get_mp_graph()
     node_levels = nx.shortest_path_length(mp_graph, "MP:0000001")
     term_totals = data.loc[:, ("total", "description")]

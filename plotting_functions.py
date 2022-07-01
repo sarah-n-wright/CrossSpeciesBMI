@@ -56,24 +56,26 @@ def plot_overlap_significance(primary, secondary, results_table):
     plt.xlim([-.5,len(pairs_data)-.5])
 
 
-def plot_permutation_histogram(permuted, observed, title, xlabel):
+def plot_permutation_histogram(permuted, observed, title, xlabel, color="cornflowerblue", arrow_color="red"):
     """
     Plot the observed mean of NPS_hr against a density histrogram of the means of permuted NPS_hr
     :param permuted: Vector of means of permuted NPS_hr
     :param observed: Observed mean of NPS_hr
     :param title: String for plot title
     :param xlabel: String for x-axis label
+    :param color:
+    :param arrow_color:
     """
     plt.figure(figsize=(5, 4))
-    dfig = sns.histplot(permuted, label='Expected', alpha=0.4, stat='density', bins=25, kde=True, 
-                        edgecolor='w')
+    dfig = sns.histplot(permuted, label='Permuted', alpha=0.4, stat='density', bins=25, kde=True, 
+                        edgecolor='w', color=color)
     params = {'mathtext.default': 'regular' }          
     plt.rcParams.update(params)
     plt.xlabel(xlabel, fontsize=16)
     diff = max(observed, max(permuted))-min(permuted)
     plt.arrow(x = observed, y=dfig.dataLim.bounds[3]/2, dx=0, dy = -1 * dfig.dataLim.bounds[3]/2,label = "Observed",
               width=diff/100, head_width=diff/15, head_length=dfig.dataLim.bounds[3]/20, overhang=0.5, 
-              length_includes_head=True, color="red", zorder=50)
+              length_includes_head=True, color=arrow_color, zorder=50)
     #plt.xlabel(xlabel, fontsize=12)
     plt.ylabel("Density", fontsize=16)
     plt.legend(fontsize=12, loc=(0.6,0.75))
