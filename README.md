@@ -33,7 +33,7 @@ used to generate the results in this study.
 this study.  
 * `updated_netcoloc_functions.py` Contains modifications to the published NetColoc 
 source code for use in this project. These modifications include:
- * ability to maintain stable versions of Mouse Genome Database data and phenotype 
+  * ability to maintain stable versions of Mouse Genome Database data and phenotype 
 ontology.
   * implementation of network propagation sampling procedure for gene sets > 500 genes
   * implementation of partitioning the seed genes and non-seed genes for permuted
