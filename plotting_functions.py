@@ -3,8 +3,6 @@ from matplotlib.patches import Patch
 from matplotlib.patches import BoxStyle as bx
 from analysis_functions import *
 from updated_netcoloc_functions import *
-
-
 import seaborn as sns
 import pandas as pd
 import networkx as nx
@@ -17,7 +15,14 @@ from statsmodels.stats.multitest import fdrcorrection
 ## Utitlies ------------------------------------------------
 
 def alpha_blending(foreground_tuple, alpha) :
-    """ alpha blending as if on the white background.
+    """alpha blending as if on the white background.
+
+    Args:
+        foreground_tuple (tuple): RGB color description
+        alpha (float): Degree of blending. 1 for no blending, 0 for complete blending
+
+    Returns:
+        tuple: RGB code for blended color
     """
     foreground_arr = np.array(foreground_tuple)
     final = tuple( (1. -  alpha) + foreground_arr*alpha )
@@ -25,46 +30,31 @@ def alpha_blending(foreground_tuple, alpha) :
 
 
 def darken(color_tuple, factor=0.25):
+    """Take a color and darken the shade
+
+    Args:
+        color_tuple (tuple): _description_
+        factor (float, optional): How much should thecolor be darkened? 1 will maintain the current color, 0 will make it black. Defaults to 0.25.
+
+    Returns:
+        tuple: darkened color code
+    """
     color = np.array(color_tuple)
     color = color * (1-factor)
     return tuple(color)
 
 
 ## Main functions -------------------------------------------
+def plot_permutation_histogram(permuted, observed, title="", xlabel="Observed vs Permuted", color="cornflowerblue", arrow_color="red"):
+    """Plot an observed value against a distribution of permuted values
 
-
-def plot_overlap_significance(primary, secondary, results_table):
-    """
-    :param primary:
-    :param secondary:
-    :param results_table:
-    """
-    pairs = [(primary, s)  if (primary, s) in results_table.index else (s, primary) for s in secondary]
-    pairs_data = results_table.loc[pairs]
-    pairs_data['xlabel'] = [primary+ "-" + s for s in secondary]
-    pairs_data['yerr_lower'] = pairs_data.apply(lambda x: x.obs_exp - x.num_overlap/(x.exp_mean_overlap + 1.96*x.exp_std_overlap), axis = 1)
-    pairs_data['yerr_upper'] = pairs_data.apply(lambda x: x.num_overlap/(x.exp_mean_overlap - 1.96*x.exp_std_overlap) - x.obs_exp, axis = 1)
-
-    plt.figure(figsize = (4,3))
-    plt.errorbar(np.arange(len(pairs_data)),pairs_data['obs_exp'],
-             yerr=[pairs_data['yerr_lower'],pairs_data['yerr_upper']],
-             fmt='o',color='k')
-    tmp=plt.xticks(np.arange(len(pairs_data)), pairs_data['xlabel'],fontsize=16,rotation='vertical')
-    plt.ylabel('observed/expected size \nof network intersection\n(95% CI)',fontsize=16)
-    plt.hlines(1,xmin=-.5,xmax=len(pairs_data),color='gray',linestyles='dashed')
-    plt.yticks(fontsize=16)
-    plt.xlim([-.5,len(pairs_data)-.5])
-
-
-def plot_permutation_histogram(permuted, observed, title, xlabel, color="cornflowerblue", arrow_color="red"):
-    """
-    Plot the observed mean of NPS_hr against a density histrogram of the means of permuted NPS_hr
-    :param permuted: Vector of means of permuted NPS_hr
-    :param observed: Observed mean of NPS_hr
-    :param title: String for plot title
-    :param xlabel: String for x-axis label
-    :param color:
-    :param arrow_color:
+    Args:
+        permuted (list): A list of permuted values that form the disribution
+        observed (float): The observed value of interest
+        title (str): Plot title. Defaults to "".
+        xlabel (str): The x axis title. Defaults to "Observed vs Permuted".
+        color (str, optional): The color of the histogram. Defaults to "cornflowerblue".
+        arrow_color (str, optional): The color of the arrow pointing to observed value. Defaults to "red".
     """
     plt.figure(figsize=(5, 4))
     dfig = sns.histplot(permuted, label='Permuted', alpha=0.4, stat='density', bins=25, kde=True, 
@@ -74,8 +64,8 @@ def plot_permutation_histogram(permuted, observed, title, xlabel, color="cornflo
     plt.xlabel(xlabel, fontsize=16)
     diff = max(observed, max(permuted))-min(permuted)
     plt.arrow(x = observed, y=dfig.dataLim.bounds[3]/2, dx=0, dy = -1 * dfig.dataLim.bounds[3]/2,label = "Observed",
-              width=diff/100, head_width=diff/15, head_length=dfig.dataLim.bounds[3]/20, overhang=0.5, 
-              length_includes_head=True, color=arrow_color, zorder=50)
+                width=diff/100, head_width=diff/15, head_length=dfig.dataLim.bounds[3]/20, overhang=0.5, 
+                length_includes_head=True, color=arrow_color, zorder=50)
     #plt.xlabel(xlabel, fontsize=12)
     plt.ylabel("Density", fontsize=16)
     plt.legend(fontsize=12, loc=(0.6,0.75))
@@ -87,8 +77,34 @@ def plot_permutation_histogram(permuted, observed, title, xlabel, color="cornflo
 
 
 def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_names=None, sort_by=None, 
-                         label_number="total", vert=20, color_idx=None, mp_graph=None, horz=10, save_to=None,
+                        label_number="total", vert=20, color_idx=None, mp_graph=None, horz=10, save_to=None,
                         ylabel_groups=None, subplot_ax=None, drop_terms=True, correct_by_community=False):
+    """Plots the enrichment statistics as a bar plot for a set of communities and MP terms.
+
+    Args:
+        data_all (pd.DataFrame): Encrichment results for the hierarchy.
+        communities (list): List of communities to plot data for. List length <= 5.
+        mps (str, list): Either 1: a list of MP term strings to plot, or 2: a single MP string - in which case all child terms of this term will be plotted
+        sig_level (float, optional): Significance level at which to shade "significant" bars. Defaults to 0.05.
+        community_names (list, optional): Display names of communities to plot. Defaults to None.
+        sort_by (str, optional): How should the terms be sorted on the y axis. "q" for significance, "observed" for the number of community genes associated with a term. Defaults to None.
+        label_number (str, optional): Annotation to add alongside the ylabels, "observbed" to show the number of community genes associated with the term
+            , "percent community" to show the percent of community genes associated with the term, "total" to show the total number of genes associated with the term
+            in MGD. Defaults to "total".
+        vert (int, optional): Height of plot in inches. Defaults to 20.
+        color_idx (int, list, optional): Color ordering of 5 base colors. Defaults to None.
+        mp_graph (nx.DiGraph, optional): The parent child relationships of all MP terms. Required if parent MP term given in `mps`. Defaults to None.
+        horz (int, optional): Width of plot in inches. Defaults to 10.
+        save_to (str, optional): Path for saving the figure. If None, figure not saved. Defaults to None.
+        ylabel_groups (list, optional): Binary list of groupings of ylabels - will be given alternating label colors. Defaults to None.
+        subplot_ax (matplotlib.pyplot.Axes, optional): Axes object for placing figure in existing axes. Defaults to None.
+        drop_terms (bool, optional): Should terms with no data be dropped?. Defaults to True.
+        correct_by_community (bool, optional): Should p-value correction be done per individual community or as one group?. Defaults to False.
+
+    Returns:
+        pd.DataFrame: the data used to plot
+        matplotlib.pyplot.Axes: the plot Axis object
+    """
     # Check inputs --------
     assert len(communities) == len(community_names), "Length of community names and communities must be equal"
     assert sig_level < 1.0 and sig_level > 0
@@ -96,10 +112,6 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
     
     if type(mps) == str and mp_graph is not None:
         mps = [node for node in nx.dfs_preorder_nodes(mp_graph, mps, 1) if node in data_all.index][1:]
-    
-    # Set up color variables --------
-    #colors = [(0/255,158/255,115/255), (0/255,114/255,178/255), (230/255,175/255,0/255), (213/255,94/255, 0/255),
-    #         (115/255, 44/255, 87/255)]
 
     colors = [(14/255,142/255,18/255), (3/255,67/255,223/255), (250/255,160/255,0/255), (181/255,7/255,72/255)]
     colors += [(201/255, 14/255, 169/255)]
@@ -159,11 +171,10 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
             else:
                 extra_mps = [mp for mp in mps if mp not in sort_data.index ]
                 mps = list(sort_data.index.values) + extra_mps
-            
-            
+    #calculate all the statistics needed to plot bars and error bars
     for c, comm in enumerate(communities):
         plot_data = pd.DataFrame({"mps":mps, "community":comm, "left":1.0, "width":0.0, "upper":0, "lower":0, 
-                                  "fill":[(1,1,1)], "hatch":""}, index=mps)  
+                                    "fill":[(1,1,1)], "hatch":""}, index=mps)  
         comm_nodes = [node for node in mps if (node in data.loc[data.name==comm].index)]
         results = data.loc[data.name==comm]
         results = results.assign(sig=[cmap[comm] if val<sig_level else (1,1,1) for val in results["q"]])
@@ -171,8 +182,8 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
         results = results.assign(hypsig=["/" if val < sig_level else "" for val in results.q_hyper])
         try:
             plot_data = plot_data.assign(left=[min(1, results.loc[mp, "OR"]) if mp in results.index else 1.0 for mp in plot_data.index], 
-                                         width=[max(1-results.loc[mp, "OR"], results.loc[mp, "OR"]-1) if mp in results.index else 0.0 for mp in plot_data.index], 
-                                         upper=[results.loc[mp, "OR_CI_upper"] - results.loc[mp, "OR"] if mp in results.index else 0.0 for mp in plot_data.index],
+                                        width=[max(1-results.loc[mp, "OR"], results.loc[mp, "OR"]-1) if mp in results.index else 0.0 for mp in plot_data.index], 
+                                        upper=[results.loc[mp, "OR_CI_upper"] - results.loc[mp, "OR"] if mp in results.index else 0.0 for mp in plot_data.index],
                                         lower =[results.loc[mp, "OR"] - results.loc[mp, "OR_CI_lower"] if mp in results.index else 0.0 for mp in plot_data.index],
                                         fill =[results.loc[mp, "sig"] if mp in results.index else (1,1,1) for mp in plot_data.index], 
                                         hatch = [results.loc[mp, "hypsig"] if mp in results.index else ""for mp in plot_data.index])
@@ -181,13 +192,11 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
         neg_bars = plot_data.loc[plot_data["left"] < 1].index
         plot_data = plot_data.assign(upper=[results.loc[x, "OR_CI_upper"] - 1 if x in neg_bars else plot_data.loc[x, "upper"] for x in plot_data.index])
         plot_data = plot_data.assign(lower=[1- results.loc[x, "OR_CI_lower"] if x in neg_bars else plot_data.loc[x, "lower"] for x in plot_data.index])
-        # TODO finish up to get the right color scheme as before without iteration
         #return plot_data, cmap, comm, sig_bars
         plot_data = plot_data.assign(edgecolor=[cmap[comm] if mp in results.index else (1,1,1) for mp in plot_data.index ])
         plot_data = plot_data.assign(ecolor=[(darken(cmap[comm])) if mp in sig_bars else (alpha_blending(cmap[comm], 0.3)) for mp in plot_data.index])
         plot_data = plot_data.assign(y=[-1*(i+c*height) for i in range(len(plot_data))])
     
-        
         community_plot_data.append(plot_data)
 
     all_plot_data = pd.concat(community_plot_data, axis=0)
@@ -204,8 +213,8 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
         plt.figure(figsize=(horz, vert), frameon=False)
         ax = plt.subplot(111)
     ax.barh(data=all_plot_data, y="y", height=height, left="left", color="fill", width="width", 
-             xerr=(all_plot_data.lower, all_plot_data.upper), 
-             edgecolor="edgecolor", ecolor="ecolor", alpha=0.7)
+            xerr=(all_plot_data.lower, all_plot_data.upper), 
+            edgecolor="edgecolor", ecolor="ecolor", alpha=0.7)
 
     handles = [Patch(facecolor=cmap[comm]) for comm in communities]
     handle_map = {community_names[c] +  " (N=" + str(int(data.loc[data["name"]==comm, "size"].values[0])) + ")": colors[c] for c, comm in enumerate(communities)}
@@ -226,8 +235,8 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
     elif label_number == "percent_community" and len(communities) == 1:
         comm_size = data["size"].values[0]/100
         ylabels = [data.loc[node, "description"] + 
-                   " (" + str(round(int(data.loc[node, "observed"])/comm_size))+'%)'  if node in data.index else
-                   data.loc[node, "description"] + " (0%)" for node in mps]
+                    " (" + str(round(int(data.loc[node, "observed"])/comm_size))+'%)'  if node in data.index else
+                    data.loc[node, "description"] + " (0%)" for node in mps]
     else:
         ylabels = [data_all.loc[node, "description"].values[0] for node in mps]
         
@@ -253,7 +262,6 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
             print("Labels:", len(ylabels))
             print("Label groups:", len(ylabel_groups))
     
-    
     if sort_by is None:
         plt.legend(handles, handle_map, loc="upper right")
     else:
@@ -265,6 +273,16 @@ def plot_hbar_comparison(data_all, communities, mps, sig_level=0.05, community_n
 
 ## Network Plots -----------------------------------------------------------
 def normalize_to_range(data, upper, lower):
+    """normalizes a vector of numeric data to a range based on upper and lower bounds.
+
+    Args:
+        data (numpy.array): Data to normalized
+        upper (float): Upper bound of desired range
+        lower (float): Lower bound of desired range
+
+    Returns:
+        numpy.array: Normalized data
+    """
     if max(data) - min(data) == 0:
         norm_data = (data / data) * (upper+lower)/2
     else:
@@ -276,6 +294,21 @@ def normalize_to_range(data, upper, lower):
 
 
 def create_legend_size_graph(node_sizes, node_data, min_size=100, max_size=1000, size_by='obs', adjust_root=0):
+    """Creates a networkx graph that acts as a legend for node sizes
+
+    Args:
+        node_sizes (list): Node sizes normalized to the range (min_size, max_size).
+        node_data (pd.DataFrame): Dataframe of plotting data
+        min_size (int, optional): Display size for smallest node. Defaults to 100.
+        max_size (int, optional): Display size for largest node. Defaults to 1000.
+        size_by (str, optional): Column representing the sizes. Defaults to 'obs'.
+        adjust_root (int, optional): Adjustment to x position. Defaults to 0.
+
+    Returns:
+        nx.Graph: legend graph
+        leg_sizes: sizes of the nodes for plotting
+        positions: xy positions to plot the nodes
+    """
     G = nx.Graph()
     lower = min([sz for sz in node_sizes])
     true_lower = min(node_data[size_by])
@@ -328,7 +361,6 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, leaf_vs_
     determining how much of the horizontal space is based on the bottom up 
     or top down approaches.  ``0`` gives pure bottom up, while 1 gives pure top
     down.   
-    
     
     :Arguments: 
     
@@ -424,8 +456,35 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, leaf_vs_
 def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, term_mapping, select_on="q", size_by="OR", 
                                 color_by="q", alpha_by=None, 
                                 vert=10, label="all", descriptive_labels=False,
-                               adjust_root=0):
-    
+                                adjust_root=0):
+    """Top-down approach to identify phenotypes enriched for community genes
+
+    Args:
+        data (pd.DataFrame): The enrichment statistics for all terms and communities
+        community (str): The community to plot data for
+        root (str): The root node to start from
+        mpG (nx.DiGraph): Graph representation of the MPO
+        MPO (ddot.Ontology): The mammalian phenotype ontology
+        hier_df_genes (pd.DataFrames): Dataframe of community information that contains the list of genes per community (CD_MemberList)
+        term_mapping (dict): Mapping between terms (keys) and list of associated genes (values)
+        select_on (str, optional): Method for selecting child terms to include: 
+            "hypergeom", keep child terms with a lower hypergeometric p-value less than the parent when conditioned on the parent proportions
+            "ppv", keep child terms with a higher positive predictive value (fraction of community genes)
+            "q", keep child terms with a correct pvalue less than the parent
+            "OR", keep child terms with an odds ratio larger than the parent
+            "qxOR", keep child terms with -1*np.log10(q) * OR greater than the parent 
+            Defaults to "q".
+        size_by (str, optional): Column to map to the node size. Defaults to "OR".
+        color_by (str, optional): Column to map to the quantitative color scale. Defaults to "q".
+        alpha_by (str, optional): Column to map the transparency level of the nodes. Defaults to None.
+        vert (int, optional): Height of the plot in inches. Defaults to 10.
+        label (str, optional): Which nodes should be labelled? "all" for all nodes. "leaf" for leaf nodes only. Defaults to "all".
+        descriptive_labels (bool, optional): Should descriptive labels be drawn rather than MP term ids. Ignored if label=="all". Defaults to False.
+        adjust_root (int, optional): Adjust the gap between the root and first level to make labels easier to read. Defaults to 0.
+
+    Returns:
+        pd.DataFrame: data used for plotting
+    """
     comm_genes = hier_df_genes.loc[community, "CD_MemberList"].split(" ")
     data = data.loc[data.name==community]
     stop = False
@@ -534,8 +593,8 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
         c_max = max(node_data[color_by])
     
     n = nx.draw_networkx_nodes(sigG, pos=pos2, node_size=node_sizes, nodelist=list(node_data.index),
-                    node_color=node_data[color_by], cmap="viridis", label="test", alpha = node_alphas,
-                              vmin=c_min, vmax=c_max)
+                                node_color=node_data[color_by], cmap="viridis", label="test", alpha = node_alphas,
+                                vmin=c_min, vmax=c_max)
     # edge labels for edges out of root
     if descriptive_labels:
         edge_labels = [descriptions.loc[node, "description"] if sigG.has_edge(root, node) else "" for node in sigG.nodes]
@@ -545,8 +604,8 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
     edge_labels = {(root, node_data.index.values[i]):edge_labels[i] for i in range(len(edge_labels))}
     if label != "all":
         nx.draw_networkx_edge_labels(sigG, pos=pos2, edge_labels=edge_labels, label_pos=0.48, 
-                                     bbox={"boxstyle":bx.Round(pad=0, rounding_size=0.99),
-                                          "facecolor":"white"})
+                                    bbox={"boxstyle":bx.Round(pad=0, rounding_size=0.99),
+                                            "facecolor":"white"})
     #sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(vmin=min(node_data[color_by]), vmax=max(node_data[color_by])))
     sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(vmin=c_min, vmax=c_max))
     sm._A = []
@@ -571,7 +630,7 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
 ## HeatMap ---------------------------------------------------------------------------
 
 def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_th=0.05, stat="OR", filter_stat="OR_p",
-                          ylabel_groups=None, color_range=None, vert=None, horz=12):
+                            ylabel_groups=None, color_range=None, vert=None, horz=12):
     # TODO remove dependence on annotations
     # get rid of name_x
     keep_cols = list(set(["name", "description", stat, filter_stat]))
@@ -581,7 +640,7 @@ def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_t
     keep_nodes = [node for node in node_list if node in body_size_results.name_x.values]
     missing_nodes = [n for n in node_list if n not in keep_nodes]
     body_size_results = body_size_results.assign(sig_OR=[body_size_results.loc[x, stat] if body_size_results.loc[x, filter_stat] < filter_th else None 
-                                         for x in body_size_results.index])
+                                            for x in body_size_results.index])
     OR_table = body_size_results.loc[body_size_results.name_x.isin(keep_nodes)].pivot(index="description", columns="name_x", values="sig_OR")
     # add null results for communities with no results
     for n in missing_nodes:
@@ -599,8 +658,8 @@ def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_t
         if color_range is not None:
             sns.heatmap(np.log2(OR_table), cmap='RdBu', center= color_range[1], 
                         cbar_kws={"aspect":10, "ticks":[i for i in range(color_range[0]+1, color_range[2])],
-                                 "orientation": 'horizontal', "shrink":0.4}, 
-                       vmin=color_range[0], vmax = color_range[2])
+                                "orientation": 'horizontal', "shrink":0.4}, 
+                        vmin=color_range[0], vmax = color_range[2])
         else:
             sns.heatmap(np.log2(OR_table), cmap='RdBu', center=0, cbar_kws={"aspect":10, "ticks":[-1, 0, 1, 2,3,4]})
     else:
