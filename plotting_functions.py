@@ -321,7 +321,7 @@ def create_legend_size_graph(node_sizes, node_data, min_size=100, max_size=1000,
     nodes_to_plot.sort()
     for i, node in enumerate(nodes_to_plot):
         G.add_node(node)
-        positions[node] = (0.01 + 0.05*(i-1) - adjust_root, 0.4)
+        positions[node] = (0.01 + 0.08*(i-1) - adjust_root*0.8, 0.4)
     if len(positions) == 1:
         leg_sizes = (min_size+max_size)/2
     elif len(positions) == 2:
@@ -456,7 +456,7 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, leaf_vs_
 def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, term_mapping, select_on="q", size_by="OR", 
                                 color_by="q", alpha_by=None, 
                                 vert=10, label="all", descriptive_labels=False,
-                                adjust_root=0):
+                                adjust_root=0, c_max=10):
     """Top-down approach to identify phenotypes enriched for community genes
 
     Args:
@@ -481,11 +481,17 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
         label (str, optional): Which nodes should be labelled? "all" for all nodes. "leaf" for leaf nodes only. Defaults to "all".
         descriptive_labels (bool, optional): Should descriptive labels be drawn rather than MP term ids. Ignored if label=="all". Defaults to False.
         adjust_root (int, optional): Adjust the gap between the root and first level to make labels easier to read. Defaults to 0.
+        c_max (int, optional): The value to associated with the maximum of the color scale. Anything above this will be mapped to the maximum color. Defaults to 10.
 
     Returns:
         pd.DataFrame: data used for plotting
     """
-    comm_genes = hier_df_genes.loc[community, "CD_MemberList"].split(" ")
+    if "MP" not in data.columns:
+        data = data.assign(MP=data.index)
+    try:
+        comm_genes = hier_df_genes.loc[community, "CD_MemberList"].split(" ")
+    except AttributeError:
+        comm_genes = hier_df_genes.loc[community, "CD_MemberList"]
     data = data.loc[data.name==community]
     stop = False
     sigH = []
@@ -584,10 +590,10 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
     
     if color_by == "q":
         c_min = 0
-        c_max = 10
+        c_max = c_max
     elif color_by == "OR":
         c_min = -0.5
-        c_max = 10
+        c_max = c_max
     else:
         c_min = min(node_data[color_by])
         c_max = max(node_data[color_by])
@@ -628,20 +634,43 @@ def draw_significance_hierarchy(data, community, root, mpG, MPO, hier_df_genes, 
 
 
 ## HeatMap ---------------------------------------------------------------------------
+def plot_community_heatmap(results, traits, node_list,MPO, annotations=None, filter_th=0.05, stat="OR", filter_stat="OR_p",
+                            ylabel_groups=None, color_range=None, vert=None, horz=12, xlabel="name"):
+    """Plot enrichment results between a set of gene communities and a set of mammalian phenotypes
 
-def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_th=0.05, stat="OR", filter_stat="OR_p",
-                            ylabel_groups=None, color_range=None, vert=None, horz=12):
-    # TODO remove dependence on annotations
-    # get rid of name_x
-    keep_cols = list(set(["name", "description", stat, filter_stat]))
+    Args:
+        results (pd.DataFrame): A dataframe containing the enrichment results for each community against each trait to be plotted
+        traits (list): The list of traits from `MPO` to be plotted as the rows of the heatmap. 
+        node_list (list): The list of node identifiers to plot data for.
+        MPO (ddot.Ontology): MPO (ddot.Ontology): The mammalian phenotype ontology
+        annotations (pd.DataFrame): Alternative to using `xlabel` to label based on existing column, `annotations` can be used to supply a separate dataframe of labeling 
+            information. Must have an index matching `node_list`. 
+        filter_th (float, optional): Threshold for including cells based on `filter_stat`. Defaults to 0.05.
+        stat (str, optional): Column name of the statistic that should be mapped to the color of the heatmap. Defaults to "OR".
+        filter_stat (str, optional): Statistic to determine whether value for a cell should be plotted. Defaults to "OR_p".
+        ylabel_groups (list, optional): Binary list of groupings of ylabels - will be given alternating label colors. Defaults to None.
+        color_range (tuple, optional): (min, max) OR values to be mapped to the color map. Only used if `stat=="OR"`. Defaults to None.
+        vert (float, optional): Height of the plot in inches. Defaults to None.
+        horz (float, optional): Width of the plot in inches. Defaults to 12.
+        xlabel (str, optional): Name of column in `results` to use for labeling the columbs of the heatmap. Defaults to "name".
+
+    Returns:
+        pd.DataFrame: The community vs trait table values plotted in the heatmap. 
+    """
+    
+    keep_cols = list(set(["name", "description", stat, filter_stat, xlabel]))
     body_size_results = results.loc[traits, keep_cols]
+    body_size_results["MP"] = body_size_results.index
+    body_size_results = body_size_results.reset_index(drop=True)
+    
     body_size_results["description"] = body_size_results["description"].apply(lambda x: x.split("abnormal ")[-1])
-    body_size_results = body_size_results.merge(annotations, left_on="name", right_on="represents")
-    keep_nodes = [node for node in node_list if node in body_size_results.name_x.values]
+    #body_size_results = body_size_results.merge(annotations, left_on="name", right_on="represents")
+    keep_nodes = [node for node in node_list if node in body_size_results["name"].values]
     missing_nodes = [n for n in node_list if n not in keep_nodes]
-    body_size_results = body_size_results.assign(sig_OR=[body_size_results.loc[x, stat] if body_size_results.loc[x, filter_stat] < filter_th else None 
-                                            for x in body_size_results.index])
-    OR_table = body_size_results.loc[body_size_results.name_x.isin(keep_nodes)].pivot(index="description", columns="name_x", values="sig_OR")
+    body_size_results = body_size_results.assign(sig_OR=[body_size_results.loc[x, stat] if 
+                                                        body_size_results.loc[x, filter_stat] < filter_th else None 
+                                                        for x in body_size_results.index])
+    OR_table = body_size_results.loc[body_size_results["name"].isin(keep_nodes)].pivot(index="description", columns="name", values="sig_OR")
     # add null results for communities with no results
     for n in missing_nodes:
         OR_table[n] = [np.nan] * len(traits)
@@ -649,6 +678,9 @@ def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_t
     OR_table = OR_table.loc[:, node_list]
     descriptions = [get_MP_description(term, MPO).split("abnormal ")[-1] for term in traits]
     OR_table = OR_table.loc[descriptions]
+    # ignore "negative" enrichments
+    OR_table[OR_table < 1] = np.nan
+    
     # plot results
     if vert is None:
         _, ax = plt.subplots(figsize=(horz,2*(len(traits))/6))
@@ -656,15 +688,16 @@ def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_t
         _, ax = plt.subplots(figsize=(horz, vert))
     if stat == "OR":
         if color_range is not None:
-            sns.heatmap(np.log2(OR_table), cmap='RdBu', center= color_range[1], 
-                        cbar_kws={"aspect":10, "ticks":[i for i in range(color_range[0]+1, color_range[2])],
-                                "orientation": 'horizontal', "shrink":0.4}, 
-                        vmin=color_range[0], vmax = color_range[2])
+            sns.heatmap(np.log2(OR_table), cmap='Blues',
+                        cbar_kws={"aspect":10, "ticks":[i for i in range(color_range[0], color_range[1]+1)],
+                                "orientation": 'vertical', "shrink":0.6}, 
+                        vmin=color_range[0], vmax = color_range[1])
         else:
-            sns.heatmap(np.log2(OR_table), cmap='RdBu', center=0, cbar_kws={"aspect":10, "ticks":[-1, 0, 1, 2,3,4]})
+            sns.heatmap(np.log2(OR_table), cmap='Blues', cbar_kws={"aspect":10, "ticks":[0, 1, 2,3,4]})
     else:
-        sns.heatmap(np.log2(OR_table), cmap='RdBu', center=0, cbar_kws={"aspect":10})
+        sns.heatmap(np.log2(OR_table), cmap='Blues', cbar_kws={"aspect":10})
     plt.ylabel("")
+    plt.yticks(fontsize=14)
     if ylabel_groups is not None:
         if len(ylabel_groups) == len(traits):
             y_colors = {0:"#0C3952", 1:"#696264"}
@@ -678,7 +711,64 @@ def plot_community_heatmap(results, traits, node_list, annotations,MPO, filter_t
             print("Label groups:", len(ylabel_groups))
     plt.xlabel("")
     ax.xaxis.tick_bottom()
-    _ = plt.xticks(rotation=90)
+    if xlabel != "name" and annotations is not None:
+        labels = [annotations.loc[x].annotation for x in node_list]
+        _ = plt.xticks(ticks=ax.get_xticks(), labels=labels, rotation=90, fontsize=14)
+    else: 
+        _ = plt.xticks(rotation=90, fontsize=14)
     ax.tick_params(axis=u'both', which=u'both',length=0)
-    plt.title("Log2("+stat+") for communities where "+filter_stat+" < "+str(filter_th))
+    plt.title("Log2("+stat+") for communities where "+filter_stat+" < "+str(filter_th), fontsize=14)
     return OR_table
+
+
+### Rat GTEx functions ---------------------------------------------------------------
+def plot_eqtls(eqtl_data, cluster=True, reverse=False, fontsize=12, figsize=(5,5)):
+    """Plot a heatmap indicating if set of genes has cis-eQTLs across rat tissues. 
+
+    Args:
+        eqtl_data (pd.DataFrame): The summary rat eqtl data for a set of genes from `analysis_functions.get_community_eqtls()`
+        cluster (bool, optional): Should the rows and columns be clustered based on similarity? Deaults to True.
+        reverse (bool, optional): Should the rows of the cluster be reversed, useful for creating more appealing plots. Defaults to False.
+        fontsize (int, optional): Fontsize to use for plotting. Defaults to 12.
+        figsize (tuple, optional): Size of the figure to be generated in inches. Defaults to (5,5).
+    """
+    cluster = sns.clustermap(eqtl_data, cmap=["lightgrey", "white", "darkcyan"], figsize=figsize, method="average")
+    plt.close()
+    colors = []
+    labels = []
+    ticks = []
+    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=figsize)
+    if (np.array(eqtl_data) == -1).any():
+        colors.append("lightgrey")
+        labels.append("Not expressed/not tested")
+        ticks.append(-0.75)
+    if (np.array(eqtl_data) == 0).any():
+        colors.append("white")
+        labels.append("No cis-eQTL")
+        ticks.append(0)
+    if (np.array(eqtl_data) == 1).any():
+        colors.append("darkcyan")
+        labels.append(" Significant cis-eQTL")
+        ticks.append(0.75)
+        
+    if cluster:
+        if reverse:
+            new_rows = cluster.dendrogram_row.reordered_ind[::-1]
+        else:
+            new_rows = cluster.dendrogram_row.reordered_ind
+        new_cols = cluster.dendrogram_col.reordered_ind[::-1]
+        sns.heatmap(eqtl_data.iloc[new_rows, new_cols], cmap =colors,square=True, ax=ax,
+                cbar_kws={"aspect":3, "shrink":0.3, "ticks":ticks})
+    else:
+        sns.heatmap(eqtl_data, cmap =colors,square=True,ax=ax,
+                cbar_kws={"aspect":3, "shrink":len(colors)/10, "ticks":ticks})
+    ax = plt.gca()
+    cb = ax.collections[-1].colorbar
+    cb.set_ticklabels(labels, fontsize=fontsize)
+
+    ax.tick_params(axis='y', length=0, width=0, pad=1)
+    ax.tick_params(axis='x', length=1, width=1, labeltop=True, labelbottom=False, top=True, bottom=False, pad=1)
+    plt.xticks(fontsize=fontsize, rotation=45, ha='left')
+    plt.yticks(fontsize=fontsize)
+    plt.xlabel("Gene", fontsize=fontsize)
+    plt.ylabel("Rat Tissue", fontsize=fontsize)

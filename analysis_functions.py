@@ -31,6 +31,29 @@ def load_human_seed_genes(filepath, interactome_nodes, trait=''):
     return seeds
 
 
+def load_rat_seed_genes(filepath, interactome_nodes, th=1e-4):
+    """Takes a gene level p-value file and extracts genes meeting the given p-value threshold that are contained
+    within the chosen biological network
+
+    Args:
+        filepath (str): seed gene file to be imported. This file must have 'HumanGene' and 'TopSNP P-Value' columns.
+        interactome_nodes (list): A list of nodes (gene symbols) in the interactome being used
+        th (float, optional): P value threshold to define seed genes. Defaults to 1e-4.
+
+    Returns:
+        list: A list of seed genes meeting the p-value threshold
+    """
+    data = pd.read_csv(filepath, sep="\t")
+    data = data.loc[data["TopSNP P-Value"]<= th]
+    print("Number of genes meeting p <", th, ":", len(data))
+    data = data.dropna(subset=["HumanGene"])
+    print("Number of significant genes with human orthologs:", len(data))
+    all_seeds = data.HumanGene.unique()           
+    seeds = [s for s in all_seeds if s in interactome_nodes]
+    print("Final number of seed genes in network:", len(seeds))
+    return seeds
+
+
 def load_pcnet():
     """Loads the PCNet network from NDEx and returns a list of nodes in the network and a networkx graph object of the network
 
@@ -127,6 +150,36 @@ def get_consensus_z_scores(sampled_results, percentile=.75):
         results = sampled_results
     consensus_z = pd.DataFrame({'z': results.quantile(q=percentile, axis=1)})
     return consensus_z
+
+
+## Utilities for systems map -------------------------------------------------------------
+def get_seed_gene_fractions(hier_df, seeds1, seeds2, seed1_name='h_seed', seed2_name='r_seed'):
+    """Assess the number of genes in each community that were seed genes from the orginal inputs
+
+    Args:
+        hier_df (pd.DataFrame): The hierarchy information of gene communities
+        seeds1 (list): List of genes from input 1
+        seeds2 (list): List of genes from input 2
+        seed1_name (str, optional): Name to give the seed genes from input 1. Defaults to 'h_seed'.
+        seed2_name (str, optional): Name to give the seed genes from input 2. Defaults to 'r_seed'.
+
+    Returns:
+        pd.DataFrame: The fraction of genes in each community that are seeds in both seeds1 and seeds2, the fraction just in seeds1, the fraction just in seeds2
+    """
+    hier_df["CD_MemberList"] = hier_df.CD_MemberList.apply(lambda x: x if type(x)==list else x.split(" "))
+    comm_genes = hier_df.explode("CD_MemberList")
+    comm_genes[seed1_name] = [1 if x in seeds1 else 0 for x in comm_genes.CD_MemberList]
+    comm_genes[seed2_name] = [1 if x in seeds2 else 0 for x in comm_genes.CD_MemberList]
+    comm_genes["overlap"] = comm_genes.apply(lambda x: x[seed1_name] * x[seed2_name], axis=1)
+    a = comm_genes.groupby(level=0).overlap.sum()
+    b = comm_genes[comm_genes.overlap != 1].groupby(level=0)[seed1_name].sum()
+    c = comm_genes[comm_genes.overlap != 1].groupby(level=0)[seed2_name].sum()
+    d = comm_genes.groupby(level=0).CD_MemberList.count()
+    counts = pd.concat([a,b,c,d], axis=1)
+    counts["network"] = counts.apply(lambda x: x.CD_MemberList - x.overlap - x[seed1_name] - x[seed2_name], axis=1)
+    fracs = counts.div(counts.CD_MemberList, axis=0)
+    return fracs
+
 
 ## Utilities for MGD Analysis ------------------------------------------------------------
 
@@ -349,3 +402,54 @@ def get_contingency_stats(observed, term_size, community_size, network_size):
     #print(CT.chi2_contribs)
     #return CT
     return pd.DataFrame({"OR":OR, "OR_p": OR_p_temp, "OR_CI_lower":OR_CI_temp[0], "OR_CI_upper":OR_CI_temp[1]}, index=[0])
+
+
+### Rat eQTLs -------------------------------------------------
+def get_rat_eqtls(gtex_data, gene, tissues="all"):
+    """Queries the eqtl status of a gene across tissue types
+
+    Args:
+        gtex_data (pd.DataFrame): The summary eqtl data from Rat GTEx
+        gene (str): A gene name to query for cis-eQTLs
+        tissues (str, optional): List of tissues to consider or "all" to consider all available tissues. Defaults to "all".
+
+    Returns:
+        pd.DataFrame: The status of the gene across tissues: 1 if there is a significant cis-eQTL, 
+            0 if it was tested and is expressed in the tissue but does not have significant cis-eQTL(s), 
+            or -1 if it was not tested or not expressed
+    """
+    if tissues == "all":
+        tissues = [x.split("expr_")[1] for x in gtex_data.columns if "expr_" in x]
+    if gene not in gtex_data.geneSymbol.values:
+        return pd.DataFrame({gene:-1}, index=tissues)
+    gene_expr = gtex_data.loc[gtex_data.geneSymbol==gene, ["expr_"+tiss for tiss in tissues]]
+    gene_expr.columns = tissues
+    gene_tested = gtex_data.loc[gtex_data.geneSymbol==gene, ["tested_"+tiss for tiss in tissues]]
+    gene_tested.columns = tissues
+    gene_eqtl = gtex_data.loc[gtex_data.geneSymbol==gene, ["eqtl_"+tiss for tiss in tissues]]
+    gene_eqtl.columns = tissues
+    gene_data = pd.concat([gene_expr, gene_eqtl, gene_tested])
+    gene_data.index = ["expr", "eqtl", "tested"]
+    gene_data = gene_data.transpose()
+    gene_data[gene] = gene_data.apply(lambda x: -1 if (~x.expr or ~x.tested) else 1 if x.expr and x.eqtl else 0, axis=1)
+    return gene_data.drop(columns = ["expr", "eqtl", "tested"])
+
+
+def get_community_eqtls(data, community, gtex_data):
+    """Get the eQTL results for all genes in a community
+
+    Args:
+        data (pd.DataFrame): Hierarchy information for gene communities
+        community (str): Identifier of the community to test
+        gtex_data (pd.DataFrame): The summary eQTL data from Rat GTEx.
+
+    Returns:
+        pd.DataFrame: Dataframe of genes (columns) and tissues (rows) with entries: 1 - gene has cis-eQTL in tissue, 0- gene does not have cis-eQTL in tissue, 
+            -1 - gene was not expressed or not tested in tissue
+    """
+    genes = data.loc[community, ("CD_MemberList")]
+    eq_data = []
+    for g in genes:
+        g = g[0] + g[1:].lower()
+        eq_data.append(get_rat_eqtls(gtex_data, g, "all"))
+    return pd.concat(eq_data, axis=1)
