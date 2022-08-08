@@ -1,0 +1,62 @@
+	num_human_seeds	num_human_loci	num_rat_seeds	num_rat_loci	num_genes_in_cluster	human_loci_per_seed	rat_loci_per_seed	annotation
+C877	227	162	114	55	642	0.7136563876651982	0.4824561403508772	Conserved BMI Network (root)
+C878	71	67	36	31	214	0.9436619718309859	0.8611111111111112	Nervous System Development
+C879	57	55	31	27	169	0.9649122807017544	0.8709677419354839	Synaptic Signaling
+C880	60	49	27	14	157	0.8166666666666667	0.5185185185185185	Chromosome Organization
+C881	31	27	12	7	68	0.8709677419354839	0.5833333333333334	mRNA Metabolic Process
+C882	16	15	11	10	53	0.9375	0.9090909090909091	Demethylation 1
+C883	9	8	3	3	34	0.8888888888888888	1.0	Glycosaminoglycan Biosynthetic Process
+C884	10	10	5	5	32	1.0	1.0	Exocytosis
+C885	11	11	6	6	31	1.0	1.0	Regulation of Cell Differentiation
+C886	8	8	6	5	27	1.0	0.8333333333333334	Demethylation 2
+C887	3	3	1	1	17	1.0	1.0	GPCR Signaling & Sensory Perception
+C888	5	5	2	2	17	1.0	1.0	Protein Transport & Localization
+C889	7	7	4	4	16	1.0	1.0	Protein Phosphorylation
+C890	6	6	1	1	15	1.0	1.0	C890
+C891	5	5	3	3	15	1.0	1.0	Neurotransmitter Secretion & Exocytosis
+C892	5	5	4	4	14	1.0	1.0	C892
+C893	5	5	3	3	14	1.0	1.0	C893
+C894	7	7	1	1	11	1.0	1.0	GPCR Signalling & Response Regulation
+C895	3	3	1	1	11	1.0	1.0	C895
+C896	1	1	1	1	11	1.0	1.0	C896
+C897	3	3	1	1	11	1.0	1.0	C897
+C898	4	4	2	2	11	1.0	1.0	C898
+C899	4	4	3	3	11	1.0	1.0	C899
+C900	3	3	1	1	10	1.0	1.0	Demethylation 3
+C901	4	4	3	3	10	1.0	1.0	C901
+C902	3	3	2	2	10	1.0	1.0	C902
+C903	3	3	1	1	10	1.0	1.0	C903
+C904	3	3	2	2	10	1.0	1.0	Regulation of Transcription RNA Poly II
+C905	4	3	3	2	9	0.75	0.6666666666666666	Mitochondrial Translation
+C906	3	3	1	1	9	1.0	1.0	C906
+C907	1	1	2	2	9	1.0	1.0	Muscle System & Calcium Signaling
+C908	3	3	2	2	8	1.0	1.0	C908
+C909	2	2	1	1	8	1.0	1.0	Regulation of Phosphatase Activity
+C910	2	2	2	2	7	1.0	1.0	C910
+C911	4	3	1	1	7	0.75	1.0	C911
+C912	2	2	1	1	7	1.0	1.0	Proteoglycan Biosynthetic Process
+C913	4	4	1	1	7	1.0	1.0	C913
+C914	3	3	1	1	7	1.0	1.0	C914
+C915	2	2	1	1	7	1.0	1.0	C915
+C916	3	3	1	1	7	1.0	1.0	C916
+C917	4	4	1	1	7	1.0	1.0	Activation of MAPK Activity
+C918	3	3	2	2	7	1.0	1.0	Chromosome Segregation
+C919	2	2	1	1	6	1.0	1.0	C919
+C920	2	2	0	0	6	1.0		Protein Targeting to ER
+C921	1	1	1	1	6	1.0	1.0	C921
+C922	2	2	1	1	6	1.0	1.0	C922
+C923	1	1	1	1	6	1.0	1.0	C923
+C924	1	1	0	0	6	1.0		C924
+C925	2	2	1	1	6	1.0	1.0	C925
+C926	1	1	0	0	5	1.0		C926
+C927	3	3	1	1	5	1.0	1.0	C927
+C928	2	2	2	2	5	1.0	1.0	C928
+C929	3	2	1	1	5	0.6666666666666666	1.0	Microtubule Organization
+C930	2	2	1	1	5	1.0	1.0	C930
+C931	1	1	1	1	5	1.0	1.0	Small GTPase Mediated Signal Transduction
+C932	1	1	1	1	5	1.0	1.0	C932
+C933	4	4	1	1	5	1.0	1.0	C933
+C934	2	2	1	1	4	1.0	1.0	Transcription Initiation RNA Poly II
+C935	1	1	1	1	4	1.0	1.0	C935
+C936	1	1	1	1	4	1.0	1.0	C936
+C937	1	1	1	1	4	1.0	1.0	C937
