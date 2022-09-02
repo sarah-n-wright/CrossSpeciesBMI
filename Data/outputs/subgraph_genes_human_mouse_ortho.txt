@@ -148,6 +148,7 @@ P2ry1
 Npas3
 Npas1
 Oprm1
+Ndufa13
 Hdac5
 Fosl1
 Luc7l
@@ -413,6 +414,7 @@ Cd55b
 Prrt2
 Cxxc5
 Loxl3
+2210010C04Rik
 Anapc4
 Camkmt
 Cdca5
@@ -536,6 +538,7 @@ Ubn1
 Vgll4
 Wdfy4
 Mlf1
+Trim13
 Rnaseh2a
 Ntm
 Ttc19
@@ -559,11 +562,9 @@ Nup88
 R3hdml
 Cd2bp2
 Dexi
-Ubap2
 Btbd2
 Cbarp
 Dcaf12
-Pdxdc1
 Phf11c
 Pigk
 Poc1b
@@ -585,7 +586,6 @@ Gxylt2
 Klf16
 Kpna4
 Nt5c1b
-Ranbp17
 Rex1bd
 Zfp787
 Sphkap
@@ -600,8 +600,10 @@ Frmd7
 Atp13a1
 C2cd2l
 Cdc37
+Gipc2
 Glyr1
 Psmd2
+Rnf123
 Sepsecs
 Wdr18
 Scgb3a1
@@ -639,6 +641,3 @@ Ccdc103
 Ism1
 Glipr2
 Ankrd31
-Krtap9-5
-Tbcb
-Amdhd2
