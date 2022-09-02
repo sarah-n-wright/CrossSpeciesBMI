@@ -22,7 +22,8 @@ def load_human_seed_genes(filepath, interactome_nodes, trait=''):
     """
     all_scores = pd.read_csv(filepath, sep="\t", index_col='gene_symbol')
     # subset to genes in the interactome
-    all_scores = all_scores.loc[list(np.intersect1d(all_scores.index.tolist(), interactome_nodes))]
+    if interactome_nodes is not None:
+        all_scores = all_scores.loc[list(np.intersect1d(all_scores.index.tolist(), interactome_nodes))]
     # Calculate bonferroni corrected pvalue (alpha=0.05)
     bonf_p = .05/len(all_scores)
     # Get significant genes
