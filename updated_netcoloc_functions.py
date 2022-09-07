@@ -348,7 +348,10 @@ def get_p_from_permutation_results(observed, permuted):
         float: p-value from z-test of observed value versus the permuted distribution
     """
     p = norm.sf((observed-np.mean(permuted))/np.std(permuted))
-    p = round(p, 4 - int(math.floor(math.log10(abs(p)))) - 1)
+    try:
+        p = round(p, 4 - int(math.floor(math.log10(abs(p)))) - 1)
+    except ValueError:
+        print("Cannot round result, p=", p)
     return p
 
 

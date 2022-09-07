@@ -49,10 +49,18 @@ def load_rat_seed_genes(filepath, interactome_nodes, th=1e-4):
     print("Number of genes meeting p <", th, ":", len(data))
     data = data.dropna(subset=["HumanGene"])
     print("Number of significant genes with human orthologs:", len(data))
+    clean_genes = clean_excel_genes(data.HumanGene.values)
+    data["HumanGene"] = data["HumanGene"].replace(clean_genes)
     all_seeds = data.HumanGene.unique()           
     seeds = [s for s in all_seeds if s in interactome_nodes]
     print("Final number of seed genes in network:", len(seeds))
     return seeds
+
+
+def clean_excel_genes(genes):
+    to_fix = [g for g in genes if ("-Sep" in g) or ("-Dec" in g)]
+    fixed = {x:(x.split("-")[1].upper()+x.split("-")[0]).replace("SEP", "SEPT") for x in to_fix}
+    return fixed 
 
 
 def load_pcnet():
