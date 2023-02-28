@@ -4,7 +4,8 @@ import networkx as nx
 import ndex2
 from getpass import getpass
 from updated_netcoloc_functions import get_p_from_permutation_results
-
+import mygene
+mg = mygene.MyGeneInfo()
 from scipy.stats import hypergeom
 from statsmodels.stats import contingency_tables
 
@@ -190,7 +191,7 @@ def get_seed_gene_fractions(hier_df, seeds1, seeds2, seed1_name='h_seed', seed2_
     return fracs
 
 
-## Utilities for MGD Analysis ------------------------------------------------------------
+# # Utilities for MGD Analysis ------------------------------------------------------------
 
 def num_to_mp(number):
     """Converts a number into a mammalian phenotype code. For example 5678 becomes 'MP:0005678'
@@ -250,6 +251,38 @@ def get_top_level_terms(mp_graph, root="MP:0000001" ,exclude=["MP:0003012", "MP:
     return [node for node in nx.dfs_preorder_nodes(mp_graph, root, 1) if node not in exclude][1:]
 
 
+def update_nodes(nodelist, manual_updates=None):
+    """Gets the updated gene symbols corresponding to nodelist using MyGeneInfo. Where duplicated exist, the user will be asked to select 
+    the correct mapping (or these can be provided via manual updates).
+
+    Args:
+        nodelist (list): A list of gene symbols to be queried
+        manual_updates (dict, optional): A dictionary mapping nodes from nodelist to the correct updated node. Defaults to None.
+
+    Returns:
+        :py:class:`pandas.DataFrame`: A dataframe mapping the original nodes to updated symbols
+        dict : A dictionary of manually assigned mappings for duplicated mygene results. 
+    """
+    approved = mg.querymany(nodelist, as_dataframe=True, species='human', scopes='symbol', fields='symbol')
+    approved["input"] = approved.index
+    approved = approved.drop_duplicates(subset=["input", "symbol"])
+    missing = approved[~approved.notfound.isna()].input.values
+    missing_df = mg.querymany(missing,as_dataframe=True, species='human', scopes='alias', fields='symbol')
+    dups = missing_df.loc[missing_df.index.duplicated()].index.values
+    if manual_updates is None:
+        keep_dups = {}
+        for gene in dups:
+            print(missing_df.loc[gene])
+            keep_dups[gene] = input()
+    else:
+        keep_dups = manual_updates
+    missing_df = missing_df.loc[~missing_df.index.isin(dups)]
+    approved = approved[approved.notfound.isna()]
+    dup_df = pd.DataFrame({"symbol":keep_dups.values()}, index=keep_dups.keys())
+    out_df = pd.concat([approved, missing_df[missing_df.notfound.isna()], dup_df])
+    return out_df, keep_dups
+
+
 def change_symbols(mgi_data, pc_node_map):
     """Update the gene symbols in the mgi data to match updated gene symbols in the interaction network
 
@@ -282,7 +315,7 @@ def get_gene_hits_no_annotation(genes, term, MPO, term_mapping):
     return overlap
 
 
-## Enrichment Analysis ---------------------------------------------------
+# # Enrichment Analysis ---------------------------------------------------
 
 def genes_per_node(MPO):
     """Summarizes the gene-term mappings contained in the ontology
@@ -403,62 +436,9 @@ def get_contingency_stats(observed, term_size, community_size, network_size):
     q10 = community_size - observed
     q11 = network_size - q00 - q01 - q10
     results_table = [[q00, q01], [q10, q11]]
-    #print(results_table)
     CT = contingency_tables.Table2x2(results_table)
     OR_p_temp = CT.oddsratio_pvalue()
     OR_CI_temp = CT.oddsratio_confint()
     OR = CT.oddsratio
-    #print(CT.chi2_contribs)
-    #return CT
+
     return pd.DataFrame({"OR":OR, "OR_p": OR_p_temp, "OR_CI_lower":OR_CI_temp[0], "OR_CI_upper":OR_CI_temp[1]}, index=[0])
-
-
-### Rat eQTLs -------------------------------------------------
-def get_rat_eqtls(gtex_data, gene, tissues="all"):
-    """Queries the eqtl status of a gene across tissue types
-
-    Args:
-        gtex_data (pd.DataFrame): The summary eqtl data from Rat GTEx
-        gene (str): A gene name to query for cis-eQTLs
-        tissues (str, optional): List of tissues to consider or "all" to consider all available tissues. Defaults to "all".
-
-    Returns:
-        pd.DataFrame: The status of the gene across tissues: 1 if there is a significant cis-eQTL, 
-            0 if it was tested and is expressed in the tissue but does not have significant cis-eQTL(s), 
-            or -1 if it was not tested or not expressed
-    """
-    if tissues == "all":
-        tissues = [x.split("expr_")[1] for x in gtex_data.columns if "expr_" in x]
-    if gene not in gtex_data.geneSymbol.values:
-        return pd.DataFrame({gene:-1}, index=tissues)
-    gene_expr = gtex_data.loc[gtex_data.geneSymbol==gene, ["expr_"+tiss for tiss in tissues]]
-    gene_expr.columns = tissues
-    gene_tested = gtex_data.loc[gtex_data.geneSymbol==gene, ["tested_"+tiss for tiss in tissues]]
-    gene_tested.columns = tissues
-    gene_eqtl = gtex_data.loc[gtex_data.geneSymbol==gene, ["eqtl_"+tiss for tiss in tissues]]
-    gene_eqtl.columns = tissues
-    gene_data = pd.concat([gene_expr, gene_eqtl, gene_tested])
-    gene_data.index = ["expr", "eqtl", "tested"]
-    gene_data = gene_data.transpose()
-    gene_data[gene] = gene_data.apply(lambda x: -1 if (~x.expr or ~x.tested) else 1 if x.expr and x.eqtl else 0, axis=1)
-    return gene_data.drop(columns = ["expr", "eqtl", "tested"])
-
-
-def get_community_eqtls(data, community, gtex_data):
-    """Get the eQTL results for all genes in a community
-
-    Args:
-        data (pd.DataFrame): Hierarchy information for gene communities
-        community (str): Identifier of the community to test
-        gtex_data (pd.DataFrame): The summary eQTL data from Rat GTEx.
-
-    Returns:
-        pd.DataFrame: Dataframe of genes (columns) and tissues (rows) with entries: 1 - gene has cis-eQTL in tissue, 0- gene does not have cis-eQTL in tissue, 
-            -1 - gene was not expressed or not tested in tissue
-    """
-    genes = data.loc[community, ("CD_MemberList")]
-    eq_data = []
-    for g in genes:
-        g = g[0] + g[1:].lower()
-        eq_data.append(get_rat_eqtls(gtex_data, g, "all"))
-    return pd.concat(eq_data, axis=1)
