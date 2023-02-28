@@ -8,6 +8,7 @@ This work was perfomed using `python 3.9.13` and used the following libraries:
 * [netcoloc](https://pypi.org/project/netcoloc/0.1.6.post1/) version 0.1.6.post1 . See further installation instuctions at 
 https://github.com/ucsd-ccbb/NetColoc, including instructions for installation of the python3 branch of [ddot](https://github.com/idekerlab/ddot/tree/python3)
 * [matplotlib-venn](https://pypi.org/project/matplotlib-venn/)  
+* [cdapsutil v0.2.0a1](https://pypi.org/project/cdapsutil/0.2.0a1/)
 
 A full specification of the environment used for code development can be found in `environment.yml`
 
