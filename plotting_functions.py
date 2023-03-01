@@ -8,7 +8,6 @@ import pandas as pd
 import networkx as nx
 import random
 import numpy as np
-
 from scipy.stats import hypergeom
 from statsmodels.stats.multitest import fdrcorrection
 
@@ -525,3 +524,55 @@ def plot_community_heatmap(results, traits, node_list,MPO, annotations=None, fil
 
     
 ### Species specific communities
+
+def plot_species_nps(data, subgraph, th_dict=None, ax=None, legend=None, fontsize=7):
+    """Plot the species and conserved networks as a function of NPSh and NPSr.
+
+    Args:
+        data (pandas.DataFrame): Gene-subnetwork mapping
+        subgraph (str): Name of the subnetwork
+        th_dict (dict, optional): Thresholds to define the subnetwork. Defaults to None.
+        ax (matplotlib.pyplot.Axes, optional): Axis to plot the figure on. Defaults to None.
+        legend (str, optional): Input to seaborn to toggle legend. Defaults to None.
+        fontsize (int, optional): Fontsize for plotting labels. Defaults to 7.
+    """
+    x_points = [(i+0.0001)/10 for i in range(-50,250)]
+    if subgraph == "conserved":
+        cmap = {"Conserved": "#F5793A", **{k:"grey" for k in ["Rat-Specific", "PCNet", "Human-Specific"]}}
+        combo_line = [th_dict["combo"]/x for x in x_points if x > th_dict["combo"]/25]
+        ax.plot([x for x in x_points if x > th_dict["combo"]/25], combo_line, color="#f5793a", linewidth=1)
+        ax.text(x=10, y=30, s="$NPS_r > "+str(th_dict["rat"])+"$", color="#a95aa1", fontsize=fontsize)
+        ax.text(x=10, y=26, s="$NPS_h > "+str(th_dict["human"])+"$", color="#85c0f9", fontsize=fontsize)
+        ax.text(x=10, y=22, s="$NPS_{hr} > "+str(th_dict["combo"])+"$", color="#f5793a", fontsize=fontsize)
+    elif subgraph == "rat":
+        cmap = {"Rat-Specific": "#a95aa1", **{k:"grey" for k in ["Conserved", "PCNet", "Human-Specific"]}}
+        combo_line = [th_dict["combo"]/(x-1) for x in x_points if x < 1 + th_dict["combo"]/25]
+        ax.plot([x for x in x_points if x < 1 + th_dict["combo"]/25], combo_line, color="#f5793a", linewidth=1)
+        ax.text(x=10, y=30, s="$NPS_r > "+str(th_dict["rat"])+"$", color="#a95aa1", fontsize=fontsize)
+        ax.text(x=10, y=26, s="$NPS_h < "+str(th_dict["human"])+"$", color="#85c0f9", fontsize=fontsize)
+        ax.text(x=10, y=22, s="$NPS_r(NPS_h-1) < "+str(th_dict["combo"])+"$", color="#f5793a", fontsize=fontsize)
+    elif subgraph == "human":
+        cmap = {"Human-Specific": "#85c0f9", **{k:"grey" for k in ["Rat-Specific", "PCNet", "Conserved"]}}
+        combo_line = [1 + th_dict["combo"]/x for x in x_points if x > th_dict["combo"]/-6]
+        ax.plot([x for x in x_points if x > th_dict["combo"]/-6], combo_line, color="#f5793a", linewidth=1)
+        ax.text(x=10, y=30, s="$NPS_r < "+str(th_dict["rat"])+"$", color="#a95aa1", fontsize=fontsize)
+        ax.text(x=10, y=26, s="$NPS_h > "+str(th_dict["human"])+"$", color="#85c0f9", fontsize=fontsize)
+        ax.text(x=10, y=22, s="$NPS_h(NPS_r-1) < "+str(th_dict["combo"])+"$", color="#f5793a", fontsize=fontsize)
+    else:
+        cmap = {"Conserved": "#F5793A","Rat-Specific": "#a95aa1", "Human-Specific": "#85c0f9", "PCNet":"grey" }
+    
+    sns.scatterplot(data=data, x="NPS_h", y="NPS_r", hue="subgraph", palette=cmap, s=2, ax=ax, markers=True, alpha=0.8,
+                legend=legend)
+    if th_dict is not None:
+        ax.hlines(y=th_dict["rat"], xmin=-5, xmax=25, color="#a95aa1", alpha=1, zorder=4, linewidth=1)
+        ax.vlines(x=th_dict["human"], ymin=-5, ymax=25, color="#85c0f9", alpha=1, zorder=3, linewidth=1)
+    ax.set_ylabel("NPS$_r$", fontsize=fontsize)
+    ax.set_xlabel("NPS$_h$", fontsize=fontsize)
+    ax.spines['left'].set(position=('data', 0.0), zorder=2)
+    ax.spines['bottom'].set(position=('data', 0.0), zorder=2)
+    ax.spines['top'].set_position(('data', 0.0))
+    ax.spines['right'].set_position(('data', 0.0))
+    ax.set_xticks([ 5, 10, 15, 20, 25, 30])
+    ax.set_xticklabels(labels=[ 5, 10, 15, 20, 25, 30], fontsize=fontsize, zorder=10)
+    ax.set_yticks([ 5, 10, 15, 20, 25, 30])
+    ax.set_yticklabels(labels=[ 5, 10, 15, 20, 25, 30], fontsize=fontsize, zorder=10)
