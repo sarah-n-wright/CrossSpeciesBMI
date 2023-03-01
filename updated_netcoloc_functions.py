@@ -448,7 +448,7 @@ def calculate_heat_zscores_with_sampling(data, nodes, individual_heats, G_PC, tr
     all_seeds = data.loc[data.pvalue <= nominal_sig / len(data)]  # Bonferroni correction
     all_seeds = all_seeds.assign(log10p=-1 * np.log10(all_seeds.pvalue))  # get -log10p for weighted sampling
     sampling_results = []
-    for i in range(num_samples):
+    for i in tqdm(range(num_samples)):
         # perform propagation for sample
         sample_seeds = rn.choices(population=all_seeds.gene_symbol.values, weights=all_seeds.log10p.values, k=max_genes)
         sample_results = calculate_heat_zscores(individual_heats, nodes=list(G_PC.nodes), degrees=dict(G_PC.degree),
