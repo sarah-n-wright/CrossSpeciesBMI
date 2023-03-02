@@ -1,14 +1,29 @@
 ## Introduction
 This repository contains code and data used perform the analysis described in 
-**Wright, S.N., Leger, B. *et al*. Genome-wide association studies of human and rat body mass index converge on a 
-conserved molecular network**.
+**Wright, S.N., Leger, B. *et al*. Genome-wide association studies of human and rat BMI converge on synapse, epigenome, and hormone signaling networks**. In Review, 2023.
 
 ## Requirements
 This work was perfomed using `python 3.9.13` and used the following libraries:
-* [netcoloc](https://pypi.org/project/netcoloc/0.1.6.post1/) version 0.1.6.post1 . See further installation instuctions at 
-https://github.com/ucsd-ccbb/NetColoc, including instructions for installation of the python3 branch of [ddot](https://github.com/idekerlab/ddot/tree/python3)
-* [matplotlib-venn](https://pypi.org/project/matplotlib-venn/)  
+* [netcoloc v0.1.6.post1](https://pypi.org/project/netcoloc/0.1.6.post1/) See additional installation instuctions at 
+https://github.com/ucsd-ccbb/NetColoc
+* [matplotlib-venn v0.11.9](https://pypi.org/project/matplotlib-venn/0.11.9/)  
 * [cdapsutil v0.2.0a1](https://pypi.org/project/cdapsutil/0.2.0a1/)
+* [ddot for python3](https://github.com/idekerlab/ddot/tree/python3). This is required for `netcoloc` functioning, and can be installed form source:
+
+    ```
+    wget https://github.com/idekerlab/ddot/archive/refs/heads/python3.zip
+    unzip python3.zip
+    cd ddot-python3
+    python setup.py bdist_wheel
+    pip install dist/ddot*py3*whl
+    ```
+    or via Github:
+    ```
+    git clone --branch python3 https://github.com/idekerlab/ddot.git
+    cd ddot
+    python setup.py bdist_wheel
+    pip install dist/ddot*py3*whl
+    ```
 
 A full specification of the environment used for code development can be found in `environment.yml`
 
@@ -26,8 +41,7 @@ networks and formation of a combined systems hierarchy.
 **Supplemental Notebooks:**  
 * `rat_human_bmi_cluster_loci.ipynb`: Analysis of the number of unique genetic loci 
 represented by seed genes in each community of the conserved BMI systems map. 
-* `Control_trait_evaluation.ipynb`: Identification of control traits and analysis of 
-network colocalization of control traits with rat BMI.
+* `Create_Rat_STRING.ipynb` Generation of rat molecular interaction networks from STRING DB. Defines high and mid-confidence networks based on edge scores.
 
 ## Function Files
 * `analysis_functions.py` Functions not contained or modified from NetColoc 
