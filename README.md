@@ -1,6 +1,6 @@
 ## Introduction
 This repository contains code and data used perform the analysis described in 
-**Wright, S.N., Leger, B. *et al*. Genome-wide association studies of human and rat BMI converge on synapse, epigenome, and hormone signaling networks**. In Review, 2023.
+**Wright, S.N., Leger, B. *et al*. Genome-wide association studies of human and rat BMI converge on synapse, epigenome, and hormone signaling networks**. Cell Reports, 2023.
 
 ## Requirements
 This work was perfomed using `python 3.9.13` and used the following libraries:
