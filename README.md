@@ -81,6 +81,6 @@ running `updated_netcoloc_functions.load_MPO()` and
 * `Figures/` python produced versions of figures used in the manuscript
 
 ## Original summary statistics
-    * rat BMI, body length, body weight: https://library.ucsd.edu/dc/object/bb83725195
-    * human BMI: bmi.giant-ukbb.meta-analysis.combined.23May2018.txt.gz @ https://zenodo.org/records/1251813#.XCLJ7vZKhE4
-    * human height: https://portals.broadinstitute.org/collaboration/giant/images/6/63/Meta-analysis_Wood_et_al%2BUKBiobank_2018.txt.gz
+* `rat BMI, body length, body weight:` https://library.ucsd.edu/dc/object/bb83725195
+* `human BMI:` bmi.giant-ukbb.meta-analysis.combined.23May2018.txt.gz @ https://zenodo.org/records/1251813#.XCLJ7vZKhE4
+* `human height:` https://portals.broadinstitute.org/collaboration/giant/images/6/63/Meta-analysis_Wood_et_al%2BUKBiobank_2018.txt.gz
